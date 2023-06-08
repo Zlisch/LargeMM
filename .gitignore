@@ -29,3 +29,5 @@ compile_commands.json
 *.err
 check_device_info
 cublas_dgemm
+*.nsys-rep
+*.sqlite

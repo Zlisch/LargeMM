@@ -73,6 +73,8 @@ int main(int argc, char *argv[]) {
     stat = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, d_MatB, n,
                         d_MatA, k, &beta, d_MatC, n);
 
+    // cublasSetStream(handle, stream);
+
     // copy kernel result back to host side
     cudaMemcpy(gpuRef, d_MatC, m * n * sizeof(float), cudaMemcpyDeviceToHost);
 
