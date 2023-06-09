@@ -6,7 +6,8 @@
 
 /*
  * Check potential performance improvement using 4 streams but
- * does not check for correctness.
+ * does not check for correctness. Assume the second matrix given is
+ * stored in a column major way.
  */
 
 #define NSTREAM 4

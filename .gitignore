@@ -31,4 +31,4 @@ check_device_info
 cublas_dgemm
 *.nsys-rep
 *.sqlite
-test_transpose
+bin/

@@ -6,14 +6,21 @@ module load hdf5/1.12.1
 module load gcc/10.3.0
 module load cmake/3.24.2
 
-make
-
 # run
 LOGDIR="./logs"
 if [[ ! -d "$LOGDIR" ]]
 then
   mkdir "$LOGDIR"
 fi
+
+BINDIR="./bin"
+if [[ ! -d "$BINDIR" ]]
+then
+  mkdir "$BINDIR"
+fi
+
+make
+
 # ./check_device_info &>> $LOGDIR/output.txt
 # ./cublas_dgemm &>> $LOGDIR/output.txt
 ./test_transpose &>> $LOGDIR/output.txt
