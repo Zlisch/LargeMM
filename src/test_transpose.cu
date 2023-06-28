@@ -20,7 +20,7 @@ void initialData(float *ip, int size)
     }
 }
 
-void checkResult(float *hostRef, float *gpuRef,   int N)
+void checkResult(float *hostRef, float *gpuRef, int N)
 {
     double epsilon = 1.0E-8;
     bool match = 1;
