@@ -39,6 +39,28 @@ void checkResult(float *hostRef, float *gpuRef, int N)
     if (match) printf("Arrays match.\n\n");
 }
 
+// void printMatrix(float *C, const int nx, const int ny) 
+// { 
+//     float *ic = C;
+//     printf("\nMatrix: (%d.%d)\n", nx, ny);
+//     for (int iy=0; iy<ny; iy++) {
+//         for (int ix=0; ix<nx; ix++) {printf("%3d",ic[ix]);}
+//         ic += nx; 
+//         printf("\n");
+//     }
+//     printf("\n"); 
+// }
+
+void printMatrix(float *C, int N)
+{
+    printf("\n");
+    for (int i = 0; i < N; i++)
+    {
+        printf("(%f)\b\b", C[i]);
+    }
+    printf("\n");
+}
+
 int main(int argc, char *argv[])
 {
     printf("> %s Starting...\n", argv[0]);
@@ -60,8 +82,8 @@ int main(int argc, char *argv[])
     // set up testing
     int m = 3;
     int n = 2;
-    int dpitch = 2; // row major
-    int spitch = 3; // row major
+    int spitch = 3 * sizeof(float); // row major
+    int dpitch = n * sizeof(float); // row major
 
     // The test matrix A is:
     // |  7  | 8  | 9  | 
@@ -76,7 +98,7 @@ int main(int argc, char *argv[])
     // | 10 | 11 |
     // | 13 | 14 |
     // test store in row major
-    float expected_gpuRef[] = {7, 8, 10, 13, 14};
+    float expected_gpuRef[] = {7, 8, 10, 11, 13, 14};
 
     // malloc host memory
     float *gpuRef = (float *)malloc(m * n * sizeof(float));
@@ -88,13 +110,21 @@ int main(int argc, char *argv[])
     cudaMalloc((void **)&d_MatA, m * n * sizeof(float));
 
     // transfer data from host to device
-    CHECK(cudaMemcpy2DAsync(d_MatA, dpitch, h_A, spitch, n, m, cudaMemcpyHostToDevice, 0));
+    CHECK(cudaMemcpy2DAsync(d_MatA, dpitch, h_A, spitch, n * sizeof(float), m, cudaMemcpyHostToDevice, 0));
 
     // copy memcpy result back to host side
     cudaMemcpy(gpuRef, d_MatA, m * n * sizeof(float), cudaMemcpyDeviceToHost);
 
     // check device results
     checkResult(expected_gpuRef, gpuRef, m * n);
+
+    // print host matrix
+    printf("The host matrix:\n");
+    printMatrix(expected_gpuRef, 2*3);
+
+    // print returned matrix
+    printf("The gpu matrix:\n");
+    printMatrix(gpuRef, 2*3);
 
     // free device global memory 
     cudaFree(d_MatA); 

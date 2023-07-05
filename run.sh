@@ -19,11 +19,12 @@ then
   mkdir "$BINDIR"
 fi
 
-make
+make clean
+make all
 
 # ./check_device_info &>> $LOGDIR/output.txt
 # ./cublas_dgemm &>> $LOGDIR/output.txt
-./test_transpose &>> $LOGDIR/output.txt
+./bin/test_memcpy2dasync &>> $LOGDIR/output.txt
 
 # nvprof --print-gpu-trace ./cublas_dgemm &>> $LOGDIR/output.txt
 
