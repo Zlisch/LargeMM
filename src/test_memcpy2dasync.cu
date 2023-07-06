@@ -82,8 +82,8 @@ int main(int argc, char *argv[])
     // set up testing
     int m = 3;
     int n = 2;
-    int spitch = 3 * sizeof(float); // row major
-    int dpitch = n * sizeof(float); // row major
+    size_t spitch = 3 * sizeof(float); // row major
+    size_t dpitch = n * sizeof(float); // row major
 
     // The test matrix A is:
     // |  7  | 8  | 9  | 
@@ -118,9 +118,9 @@ int main(int argc, char *argv[])
     // check device results
     checkResult(expected_gpuRef, gpuRef, m * n);
 
-    // print host matrix
-    printf("The host matrix:\n");
-    printMatrix(expected_gpuRef, 2*3);
+    // // print host matrix
+    // printf("The host matrix:\n");
+    // printMatrix(expected_gpuRef, 2*3);
 
     // print returned matrix
     printf("The gpu matrix:\n");

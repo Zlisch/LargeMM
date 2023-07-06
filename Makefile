@@ -1,4 +1,4 @@
-binaries=./bin/cublas_dgemm ./bin/check_device_info ./bin/test_natural ./bin/test_transpose ./bin/test_memcpy2dasync
+binaries=./bin/cublas_dgemm ./bin/check_device_info ./bin/test_natural ./bin/test_transpose ./bin/test_memcpy2dasync ./bin/coarse_overlap ./bin/test_overlapped
 all: $(binaries)
 
 ./bin/cublas_dgemm: ./src/cublas_dgemm.cu
@@ -15,6 +15,12 @@ all: $(binaries)
 
 ./bin/test_memcpy2dasync: ./src/test_memcpy2dasync.cu
 	nvcc -std=c++11 ./src/test_memcpy2dasync.cu -o ./bin/test_memcpy2dasync -lcublas -arch=sm_60
+
+./bin/coarse_overlap: ./src/coarse_overlap.cu
+	nvcc -std=c++11 ./src/coarse_overlap.cu -o ./bin/coarse_overlap -lcublas -arch=sm_60
+
+./bin/test_overlapped: ./src/coarse_overlap.cu
+	nvcc -std=c++11 ./src/test_overlapped.cu -o ./bin/test_overlapped -lcublas -arch=sm_60
 
 .PHONY: clean
 clean:

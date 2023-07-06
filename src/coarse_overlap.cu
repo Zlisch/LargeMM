@@ -7,7 +7,8 @@
 /*
  * Check potential performance improvement using 4 streams but
  * does not check for correctness. Assume the second matrix given is
- * stored in a column major way.
+ * stored in a column major way. Without copying back the result matrix
+ * from device to host.
  */
 
 #define NSTREAM 4
@@ -51,25 +52,14 @@ int main(int argc, char *argv[])
     printf("> square matrix size = %d\n", nElem);
     size_t nBytes = nElem * sizeof(float);
 
-    // grid parallel operation
-    int iElem = nElem / NSTREAM;
-    size_t iBytes = iElem * sizeof(float);
-
     // malloc pinned host memory for async memcpy
-    float *h_A, *h_B, *gpuRef[NSTREAM];
-    // float *h_A, *h_B, *gpuRef[NSTREAM], *h_B_copy;
+    float *h_A, *h_B;
     cudaHostAlloc((void**)&h_A, nBytes, cudaHostAllocDefault);
     cudaHostAlloc((void**)&h_B, nBytes, cudaHostAllocDefault);
-    // cudaMalloc((void **)&h_B_copy, nBytes); 
-    for (int i = 0; i < NSTREAM; i++)
-    cudaHostAlloc((void**)&gpuRef[i], iBytes, cudaHostAllocDefault);
 
     // initialize data at host side
-    initialData (h_A, m * k);
-    initialData (h_B, k * n);
-    // cudaMemcpy(&h_B_copy, &h_B, nBytes, cudaMemcpyHostToHost);
-    for (int i = 0; i < NSTREAM; i++)
-    memset(gpuRef[i], 0, iBytes);
+    initialData(h_A, m * k);
+    initialData(h_B, k * n);
 
     // initialize CUBLAS context
     cublasStatus_t stat;   // cuBLAS functions status
@@ -79,15 +69,11 @@ int main(int argc, char *argv[])
     float alpha = 1.0f;
     float beta = 0.0f;
 
-    // tramsform the second matrix to be column major
-    // cublasSgeam( handle, CUBLAS_OP_T, CUBLAS_OP_N, m, n, &alpha, h_B_copy, n, &beta, h_B_copy, m, h_B, m );
-
     // malloc device global memory
-    float *d_MatA, *d_MatB, *d_MatC[NSTREAM];
+    float *d_MatA, *d_MatB, *d_MatC;
     cudaMalloc((void **)&d_MatA, m * k * sizeof(float)); 
     cudaMalloc((void **)&d_MatB, k * n * sizeof(float)); 
-    for (int i = 0; i < NSTREAM; i++)
-    cudaMalloc((void **)&d_MatC[i], iBytes);
+    cudaMalloc((void **)&d_MatC, m * n * sizeof(float)); 
 
     // initialise streams
     cudaStream_t stream[NSTREAM];
@@ -96,39 +82,27 @@ int main(int argc, char *argv[])
         CHECK(cudaStreamCreate(&stream[i]));
     }
 
-    int sBytes = iBytes * 2;
     // initiate all work on the device asynchronously in depth-first order
     for (int i = 0; i < NSTREAM; ++i)
     {
-        int iaoffset = (i % 2) * iElem * 2;
-        int iboffset = !(i % 2) * iElem * 2;
-        if (i < 2)
-        {
-            cudaMemcpyAsync(&d_MatA[iaoffset], &h_A[iaoffset], sBytes,
-                              cudaMemcpyHostToDevice, stream[i]);
-            cudaMemcpyAsync(&d_MatB[iboffset], &h_B[iboffset], sBytes,
-                                cudaMemcpyHostToDevice, stream[i]);
-        }
-        // cublas TODO
-        cudaMemcpyAsync(&gpuRef[i], &d_MatC[i], iBytes,
-                              cudaMemcpyDeviceToHost, stream[i]);
+        if (i == 0 || i == 2) 
+            cudaMemcpy2DAsync(d_MatA + (i/2) * (nElem/2), k * sizeof(float), h_A + (i/2) * (nElem/2), k * sizeof(float), k * sizeof(float), m/2, cudaMemcpyHostToDevice, stream[i]);
+        if (i == 0 || i == 1)
+            cudaMemcpy2DAsync(d_MatB + (i%2) * (n/2), n * sizeof(float), h_B + (i%2) * (n/2), n * sizeof(float), (n/2) * sizeof(float), k, cudaMemcpyHostToDevice, stream[i]);
+        stat = cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_T, m/2, n/2, k, &alpha, d_MatA + (i/2) * (nElem/2), k, d_MatB + (i%2) * (n/2), n, &beta, d_MatC + (i%2) * (nElem/2) + (i/2) * (n/2), n);
     }
 
     // free device global memory 
     cudaFree(d_MatA); 
     cudaFree(d_MatB); 
-    for (int i = 0; i < NSTREAM; i++)
-    cudaFree(d_MatC[i]);
+    cudaFree(d_MatC);
 
     // destroy CUBLAS context
     cublasDestroy(handle); 
 
     // free host memory 
-    free(h_A); 
-    free(h_B); 
-    // free(h_B_copy);
-    for (int i = 0; i < NSTREAM; i++)
-    free(gpuRef[i]);
+    cudaFreeHost(h_A); 
+    cudaFreeHost(h_B); 
 
     return EXIT_SUCCESS;
 }
