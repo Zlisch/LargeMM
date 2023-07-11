@@ -5,10 +5,8 @@
 #include "./common.h"
 
 /*
- * Check potential performance improvement using 4 streams but
- * does not check for correctness. Assume the second matrix given is
- * stored in a column major way. Without copying back the result matrix
- * from device to host.
+ * Check potential performance improvement using 4 streams. Assume the second matrix given is
+ * stored in a column major way. Without copying back the result matrix from device to host.
  */
 
 #define NSTREAM 4
@@ -61,35 +59,33 @@ int main(int argc, char *argv[])
     initialData(h_A, m * k);
     initialData(h_B, k * n);
 
-    // initialize CUBLAS context
-    cublasStatus_t stat;   // cuBLAS functions status
-    cublasHandle_t handle; // cuBLAS context
-    stat = cublasCreate(&handle); 
-
-    float alpha = 1.0f;
-    float beta = 0.0f;
-
     // malloc device global memory
     float *d_MatA, *d_MatB, *d_MatC;
     cudaMalloc((void **)&d_MatA, m * k * sizeof(float)); 
     cudaMalloc((void **)&d_MatB, k * n * sizeof(float)); 
     cudaMalloc((void **)&d_MatC, m * n * sizeof(float)); 
 
+    // initialize CUBLAS context
+    cublasHandle_t handles[NSTREAM]; // cuBLAS handles for each stream
+
+    float alpha = 1.0f;
+    float beta = 0.0f;
+
     // initialise streams
     cudaStream_t stream[NSTREAM];
     for (int i = 0; i < NSTREAM; ++i)
     {
         CHECK(cudaStreamCreate(&stream[i]));
+        cublasCreate(&(handles[i]));
     }
 
     // initiate all work on the device asynchronously in depth-first order
     for (int i = 0; i < NSTREAM; ++i)
     {
-        if (i == 0 || i == 2) 
-            cudaMemcpy2DAsync(d_MatA + (i/2) * (nElem/2), k * sizeof(float), h_A + (i/2) * (nElem/2), k * sizeof(float), k * sizeof(float), m/2, cudaMemcpyHostToDevice, stream[i]);
-        if (i == 0 || i == 1)
-            cudaMemcpy2DAsync(d_MatB + (i%2) * (n/2), n * sizeof(float), h_B + (i%2) * (n/2), n * sizeof(float), (n/2) * sizeof(float), k, cudaMemcpyHostToDevice, stream[i]);
-        stat = cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_T, m/2, n/2, k, &alpha, d_MatA + (i/2) * (nElem/2), k, d_MatB + (i%2) * (n/2), n, &beta, d_MatC + (i%2) * (nElem/2) + (i/2) * (n/2), n);
+        cublasSetStream(handles[i], stream[i]);
+        cudaMemcpy2DAsync(d_MatA + (i/2) * (nElem/2), k * sizeof(float), h_A + (i/2) * (nElem/2), k * sizeof(float), k * sizeof(float), m/2, cudaMemcpyHostToDevice, stream[i]);
+        cudaMemcpy2DAsync(d_MatB + (i%2) * (n/2), n * sizeof(float), h_B + (i%2) * (n/2), n * sizeof(float), (n/2) * sizeof(float), k, cudaMemcpyHostToDevice, stream[i]);
+        cublasSgemm(handles[i], CUBLAS_OP_T, CUBLAS_OP_T, m/2, n/2, k, &alpha, d_MatA + (i/2) * (nElem/2), k, d_MatB + (i%2) * (n/2), n, &beta, d_MatC + (i%2) * (nElem/2) + (i/2) * (n/2), n);
     }
 
     // free device global memory 
@@ -98,7 +94,7 @@ int main(int argc, char *argv[])
     cudaFree(d_MatC);
 
     // destroy CUBLAS context
-    cublasDestroy(handle); 
+    for (int i = 0; i < NSTREAM; ++i) cublasDestroy(handles[i]); 
 
     // free host memory 
     cudaFreeHost(h_A); 
